@@ -7,13 +7,13 @@ $siteUrl = "https://yourtenant.sharepoint.com/sites/yoursite"
 Connect-PnPOnline -Url $siteUrl -Interactive
 
 # Define Library Name
-$libraryName = "YourLibraryName"
+$libraryName = "Documents"
 
 # Output CSV File Path
-$outputFile = "C:\temp\UniquePermissions.csv"
+$outputFile = "C:\Users\walla\Desktop\SP"
 
 # Retrieve all items in the Library
-$items = Get-PnPListItem -List $libraryName -Fields FileRef, HasUniqueRoleAssignments
+$items = Get-PnPListItem -List $libraryName -Fields FileRef, HasUniqueRoleAssignments -PageSize 1000
 
 # Initialize an empty array for results
 $permissionResults = @()
@@ -33,6 +33,12 @@ foreach ($item in $items) {
 
 # Export results to CSV
 $permissionResults | Export-Csv -Path $outputFile -NoTypeInformation -Encoding UTF8
+
+Write-Host "Export complete! File saved at: $outputFile"
+
+
+
+
 
 Write-Host "Export complete! File saved at: $outputFile"
 
