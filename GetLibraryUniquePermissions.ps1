@@ -9,7 +9,8 @@ $libraryName = "YourLibraryName"
 $outputFile = "$env:USERPROFILE\Desktop\UniquePermissions.csv" # Saves file on Desktop
 
 # Connect to SharePoint using modern authentication
-Connect-PnPOnline -Url $siteUrl -Interactive
+#Connect-PnPOnline -Url $siteUrl -Interactive
+Connect-PnPOnline -Url $siteUrl -UseWebLogin
 
 # Retrieve all items from the library
 $items = Get-PnPListItem -List $libraryName -Fields FileRef, HasUniqueRoleAssignments -PageSize 1000
