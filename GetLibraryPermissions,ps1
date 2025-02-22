@@ -7,7 +7,8 @@ $LibraryName = "Documents"  # Change to your document library name
 $CSVPath = "C:\SharePointPermissionsReport.csv"
 
 # Connect to SharePoint Online
-Connect-PnPOnline -Url $SiteURL -Interactive
+#Connect-PnPOnline -Url $SiteURL -Interactive
+Connect-PnPOnline -Url $siteUrl -UseWebLogin
 
 # Get all files and folders in the library
 $Items = Get-PnPListItem -List $LibraryName -Fields "FileRef", "FileDirRef", "HasUniqueRoleAssignments" -PageSize 5000
