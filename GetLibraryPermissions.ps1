@@ -4,13 +4,13 @@
 
 # Connect to SharePoint Online
 $siteUrl = "https://yourtenant.sharepoint.com/sites/yoursite"
-Connect-PnPOnline -Url $siteUrl -Interactive
-
+Connect-PnPOnline -Url $siteUrl -UseWebLogin
+#Connect-PnPOnline -Url $siteUrl -Interactive
 # Define Library Name
 $libraryName = "Documents"
 
 # Output CSV File Path
-$outputFile = "C:\Users\walla\Desktop\SP"
+$outputFile = "C:\temp"
 
 # Retrieve all items in the Library
 $items = Get-PnPListItem -List $libraryName -Fields FileRef, HasUniqueRoleAssignments -PageSize 1000
