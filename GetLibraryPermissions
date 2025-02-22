@@ -1,0 +1,40 @@
+# Import PnP PowerShell module (if not installed, run: Install-Module PnP.PowerShell)
+Import-Module PnP.PowerShell
+
+# Variables
+$SiteURL = "https://yourtenant.sharepoint.com/sites/yoursite"
+$LibraryName = "Documents"  # Change to your document library name
+$CSVPath = "C:\SharePointPermissionsReport.csv"
+
+# Connect to SharePoint Online
+Connect-PnPOnline -Url $SiteURL -Interactive
+
+# Get all files and folders in the library
+$Items = Get-PnPListItem -List $LibraryName -Fields "FileRef", "FileDirRef", "HasUniqueRoleAssignments" -PageSize 5000
+
+# Create an array to store permission results
+$PermissionsReport = @()
+
+# Loop through each item
+foreach ($Item in $Items) {
+    $FilePath = $Item["FileRef"]    # Get file or folder path
+    $HasUniquePermissions = $Item["HasUniqueRoleAssignments"]
+
+    # Get all users and groups with access to the item
+    $Permissions = Get-PnPObjectPermission -Object $Item
+    
+    # If there are permissions, process each user/group
+    foreach ($Permission in $Permissions) {
+        $PermissionsReport += [PSCustomObject]@{
+            FilePath        = $FilePath
+            UniquePerms     = if ($HasUniquePermissions) { "Yes" } else { "No (Inherited)" }
+            Principal       = $Permission.PrincipalName  # User or Group
+            Role            = $Permission.Roles -join ", "  # Multiple roles per user/group
+        }
+    }
+}
+
+# Export results to CSV
+$PermissionsReport | Export-Csv -Path $CSVPath -NoTypeInformation
+
+Write-Host "Permissions Report generated: $CSVPath"
