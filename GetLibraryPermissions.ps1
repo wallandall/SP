@@ -4,43 +4,40 @@
 
 # Connect to SharePoint Online
 $siteUrl = "https://yourtenant.sharepoint.com/sites/yoursite"
-Connect-PnPOnline -Url $siteUrl -UseWebLogin
-#Connect-PnPOnline -Url $siteUrl -Interactive
-# Define Library Name
-$libraryName = "Documents"
 
-# Output CSV File Path
-$outputFile = "C:\temp"
+$libraryName = "YourLibraryName"
+$outputFile = "$env:USERPROFILE\Desktop\UniquePermissions.csv" # Saves file on Desktop
 
-# Retrieve all items in the Library
+# Connect to SharePoint using modern authentication
+Connect-PnPOnline -Url $siteUrl -Interactive
+
+# Retrieve all items from the library
 $items = Get-PnPListItem -List $libraryName -Fields FileRef, HasUniqueRoleAssignments -PageSize 1000
 
-# Initialize an empty array for results
+# Initialize an array for storing results
 $permissionResults = @()
 
-# Loop through items and check for unique permissions
+# Loop through each item and check for unique permissions
 foreach ($item in $items) {
     if ($item["HasUniqueRoleAssignments"] -eq $true) {
-        # Store data in a structured object
+        # Ensure the path is retrieved properly
+        $filePath = $item.FieldValues["FileRef"]
+
+        # Store data in an object
         $permissionData = [PSCustomObject]@{
-            Path        = $item["FileRef"]
+            Path        = $filePath
             Permission  = "Unique"
         }
+
         # Add to results array
         $permissionResults += $permissionData
     }
 }
 
-# Export results to CSV
-$permissionResults | Export-Csv -Path $outputFile -NoTypeInformation -Encoding UTF8
-
-Write-Host "Export complete! File saved at: $outputFile"
-
-
-
-
-
-Write-Host "Export complete! File saved at: $outputFile"
-
-
-
+# Check if data exists before exporting
+if ($permissionResults.Count -gt 0) {
+    $permissionResults | Export-Csv -Path $outputFile -NoTypeInformation -Encoding UTF8 -Force
+    Write-Host "✅ Export complete! File saved at: $outputFile"
+} else {
+    Write-Host "⚠️ No items with unique permissions found."
+}
