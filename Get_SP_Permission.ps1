@@ -1,7 +1,12 @@
+
+# Import PnP PowerShell module (if not installed, run: Install-Module PnP.PowerShell)
+Import-Module PnP.PowerShell
+
 # Define SharePoint site and document library
 $siteUrl = "https://yourtenant.sharepoint.com/sites/yoursite"
 $libraryName = "YourLibraryName"
 $outputFile = "$env:USERPROFILE\Desktop\DocumentPermissions.csv"  # Save to Desktop
+
 
 # Connect to SharePoint using Web Login
 Connect-PnPOnline -Url $siteUrl -UseWebLogin
@@ -81,3 +86,4 @@ foreach ($file in $files) {
 }
 
 Write-Host "✅ Export complete! File saved at: $outputFile" -ForegroundColor Green
+
