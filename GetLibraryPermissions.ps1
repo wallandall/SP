@@ -1,42 +1,49 @@
 # Import PnP PowerShell module (if not installed, run: Install-Module PnP.PowerShell)
 Import-Module PnP.PowerShell
 
-# Variables
-$SiteURL = "https://yourtenant.sharepoint.com/sites/yoursite" # Change to your SharePoint site URL
-$LibraryName = "Documents"  # Change to your document library name
-$CSVPath = "C:\SharePointPermissionsReport.csv"
+# Define SharePoint site and document library
+$siteUrl = "https://yourtenant.sharepoint.com/sites/yoursite"
+$libraryName = "YourLibraryName"
+$outputFile = "$env:USERPROFILE\Desktop\UniquePermissions.csv" # Saves file on Desktop
 
-# Connect to SharePoint Online (Interactive Login)
-#Connect-PnPOnline -Url $SiteURL -Interactive
-
+# Connect to SharePoint using modern authentication
+#Connect-PnPOnline -Url $siteUrl -Interactive
 Connect-PnPOnline -Url $siteUrl -UseWebLogin
 
-# Get all files and folders in the library
-$Items = Get-PnPListItem -List $LibraryName -Fields "FileRef", "FileDirRef", "HasUniqueRoleAssignments" -PageSize 5000
+# Retrieve all items from the library
+$items = Get-PnPListItem -List $libraryName -Fields FileRef, HasUniqueRoleAssignments -PageSize 1000
 
-# Create an array to store permission results
-$PermissionsReport = @()
+# Initialize CSV file with headers
+"Path,User,Permission" | Out-File -FilePath $outputFile -Encoding UTF8
 
-# Loop through each file/folder in the document library
-foreach ($Item in $Items) {
-    $FilePath = $Item["FileRef"]  # Get file or folder path
-    $HasUniquePermissions = $Item["HasUniqueRoleAssignments"]
+# Loop through each item and check for unique permissions
+foreach ($item in $items) {
+    if ($item["HasUniqueRoleAssignments"] -eq $true) {
+        # Get file/folder path
+        $filePath = $item.FieldValues["FileRef"]
 
-    # Get all users/groups and their permissions for the item
-    $Permissions = Get-PnPListItemPermission -List $LibraryName -Identity $Item.Id
+        # Get unique permissions for the item
+        $permissions = Get-PnPObjectPermission -List $libraryName -Identity $item.Id
+        
+        foreach ($perm in $permissions) {
+            $user = $perm.PrincipalName
+            $role = $perm.Roles -join ", "  # Convert roles array to comma-separated string
+            
+            # Store data in an object
+            $permissionData = [PSCustomObject]@{
+                Path        = $filePath
+                User        = $user
+                Permission  = $role
+            }
 
-    # If permissions exist, process each user/group
-    foreach ($Permission in $Permissions) {
-        $PermissionsReport += [PSCustomObject]@{
-            FilePath        = $FilePath
-            UniquePerms     = if ($HasUniquePermissions) { "Yes" } else { "No (Inherited)" }
-            Principal       = $Permission.PrincipalName  # User or Group name
-            Role            = $Permission.Roles -join ", "  # Multiple roles in one field
+            # Display on screen in green
+            Write-Host "Path: $filePath | User: $user | Permission: $role" -ForegroundColor Green
+
+            # Append data to CSV immediately
+            "$filePath,$user,$role" | Out-File -FilePath $outputFile -Append -Encoding UTF8
         }
     }
 }
 
-# Export results to CSV
-$PermissionsReport | Export-Csv -Path $CSVPath -NoTypeInformation
+Write-Host "Export complete! File saved at: $outputFile" -ForegroundColor Green
 
-Write-Host "✅ Permissions Report generated: $CSVPath"
