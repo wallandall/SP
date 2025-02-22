@@ -7,8 +7,8 @@ $outputFile = "$env:USERPROFILE\Desktop\DocumentPermissions.csv"  # Save to Desk
 Connect-PnPOnline -Url $siteUrl -UseWebLogin
 
 # Retrieve all files (not folders) in the specified document library
-$files = Get-PnPListItem -List $libraryName -PageSize 1000 -Fields "FileRef", "FileLeafRef", "FSObjType" `
-         | Where-Object { $_["FSObjType"] -eq 0 }  # 0 = File, 1 = Folder
+$files = Get-PnPListItem -List $libraryName -Fields "FileRef", "FileLeafRef", "FSObjType" -PageSize 1000 `
+         | Where-Object { $_.FieldValues["FSObjType"] -eq 0 }  # 0 = File, 1 = Folder
 
 # Ensure files exist
 if ($files.Count -eq 0) {
@@ -25,7 +25,7 @@ foreach ($file in $files) {
     $fileName = $file.FieldValues["FileLeafRef"]
 
     # Retrieve all assigned permissions for the file
-    $roleAssignments = Get-PnPListItemPermission -List $libraryName -Identity $file.Id
+    $roleAssignments = Get-PnPProperty -ClientObject $file -Property RoleAssignments
 
     # Check if any permissions exist
     if ($roleAssignments.Count -eq 0) {
@@ -33,24 +33,29 @@ foreach ($file in $files) {
         continue
     }
 
-    # Loop through permissions and retrieve users/groups
+    # Loop through each permission entry
     foreach ($roleAssignment in $roleAssignments) {
-        $userGroup = $roleAssignment.PrincipalName  # User or Group Name
-        $roles = $roleAssignment.Roles -join ", "  # Convert roles array to comma-separated string
+        $principal = Get-PnPProperty -ClientObject $roleAssignment -Property Principal
+        $roles = Get-PnPProperty -ClientObject $roleAssignment -Property RoleDefinitionBindings
 
-        # Identify whether it's a SharePoint Group, AD User, or AD Group
-        switch ($roleAssignment.PrincipalType) {
-            "User" { $permissionType = "AAD User" }
-            "SecurityGroup" { $permissionType = "AAD Group" }
-            "SharePointGroup" { $permissionType = "SharePoint Group" }
+        # Extract user/group name
+        $userGroup = $principal.Title
+        # Extract role permissions
+        $permissionLevel = ($roles | ForEach-Object { $_.Name }) -join ", "
+
+        # Identify whether it's a SharePoint Group, AAD User, or AAD Group
+        switch ($principal.PrincipalType) {
+            1 { $permissionType = "AAD User" }
+            4 { $permissionType = "AAD Group" }
+            8 { $permissionType = "SharePoint Group" }
             default { $permissionType = "Unknown" }
         }
 
         # Display output on screen
-        Write-Host "File: $filePath | User/Group: $userGroup | Type: $permissionType | Permission: $roles" -ForegroundColor Green
+        Write-Host "File: $filePath | User/Group: $userGroup | Type: $permissionType | Permission: $permissionLevel" -ForegroundColor Green
 
         # Append data to CSV immediately
-        "$filePath,$fileName,$userGroup,$permissionType,$roles" | Out-File -FilePath $outputFile -Append -Encoding UTF8
+        "$filePath,$fileName,$userGroup,$permissionType,$permissionLevel" | Out-File -FilePath $outputFile -Append -Encoding UTF8
     }
 }
 
