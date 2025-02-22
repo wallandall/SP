@@ -24,7 +24,7 @@ foreach ($file in $files) {
     $filePath = $file.FieldValues["FileRef"]
     $fileName = $file.FieldValues["FileLeafRef"]
 
-    # Retrieve all assigned permissions for the file
+    # Retrieve role assignments for the file
     $roleAssignments = Get-PnPProperty -ClientObject $file -Property RoleAssignments
 
     # Check if any permissions exist
@@ -33,24 +33,44 @@ foreach ($file in $files) {
         continue
     }
 
-    # Loop through each permission entry
+    # Loop through each role assignment
     foreach ($roleAssignment in $roleAssignments) {
-        # Get principal object (User/Group)
-        $principal = Get-PnPProperty -ClientObject $roleAssignment -Property Principal
-        $roles = Get-PnPProperty -ClientObject $roleAssignment -Property RoleDefinitionBindings
+        # Get Principal ID
+        $principalId = $roleAssignment.PrincipalId
+        
+        # Get User or Group Information
+        $userGroup = ""
+        $entityType = "Unknown"
 
-        # Extract user/group name
-        $userGroup = $principal.Title
-        # Extract role permissions
-        $permissionLevel = ($roles | ForEach-Object { $_.Name }) -join ", "
+        # Try to get Azure AD Users and Groups
+        try {
+            $user = Get-PnPUser -Identity $principalId -ErrorAction SilentlyContinue
+            if ($user) {
+                $userGroup = $user.Title
+                $entityType = "M365 User (Azure AD User)"
+            }
+        } catch {}
 
-        # Identify whether it's a SharePoint Group, Azure AD User, or Azure AD Security Group
-        $entityType = switch ($principal.PrincipalType) {
-            1 { "M365 User (Azure AD User)" }
-            4 { "Azure AD Security Group" }
-            8 { "SharePoint Group" }
-            default { "Unknown" }
+        # Try to get SharePoint Groups
+        if ($userGroup -eq "") {
+            try {
+                $spGroup = Get-PnPGroup -Identity $principalId -ErrorAction SilentlyContinue
+                if ($spGroup) {
+                    $userGroup = $spGroup.Title
+                    $entityType = "SharePoint Group"
+                }
+            } catch {}
         }
+
+        # If user/group is still empty, assume it's an Azure AD Security Group
+        if ($userGroup -eq "") {
+            $userGroup = "Unknown Group ($principalId)"
+            $entityType = "Azure AD Security Group"
+        }
+
+        # Retrieve role permissions
+        $roles = Get-PnPProperty -ClientObject $roleAssignment -Property RoleDefinitionBindings
+        $permissionLevel = ($roles | ForEach-Object { $_.Name }) -join ", "
 
         # Display output on screen
         Write-Host "File: $filePath | User/Group: $userGroup | Entity Type: $entityType | Permission: $permissionLevel" -ForegroundColor Green
