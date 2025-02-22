@@ -7,18 +7,19 @@ $outputFile = "$env:USERPROFILE\Desktop\AllPermissions.csv"  # Save to Desktop
 Connect-PnPOnline -Url $siteUrl -UseWebLogin
 
 # Retrieve all items in the document library
-$items = Get-PnPListItem -List $libraryName -Fields FileRef -PageSize 1000
+$items = Get-PnPListItem -List $libraryName -Fields FileLeafRef, FileRef -PageSize 1000
 
 # Ensure items were retrieved
 Write-Host "Total Items Found: $($items.Count)" -ForegroundColor Cyan
 
 # Initialize CSV file with headers
-"Path,User,Permission" | Out-File -FilePath $outputFile -Encoding UTF8
+"Path,File Name,User/Group,Permission" | Out-File -FilePath $outputFile -Encoding UTF8
 
 # Loop through each item and retrieve permissions
 foreach ($item in $items) {
-    # Get file/folder path
+    # Get file/folder path and file name (with extension)
     $filePath = $item.FieldValues["FileRef"]
+    $fileName = $item.FieldValues["FileLeafRef"]  # This includes the file name and extension
 
     # Skip empty paths
     if ([string]::IsNullOrEmpty($filePath)) {
@@ -37,14 +38,14 @@ foreach ($item in $items) {
 
     # Loop through permissions and write data
     foreach ($perm in $permissions) {
-        $user = $perm.PrincipalName
-        $role = $perm.Roles -join ", "  # Convert roles array to comma-separated string
+        $userGroup = $perm.PrincipalName  # User or Group Name
+        $permissionLevel = $perm.Roles -join ", "  # Convert roles array to comma-separated string
 
         # Display output on screen
-        Write-Host "Path: $filePath | User: $user | Permission: $role" -ForegroundColor Green
+        Write-Host "Path: $filePath | File: $fileName | User/Group: $userGroup | Permission: $permissionLevel" -ForegroundColor Green
 
         # Append data to CSV immediately
-        "$filePath,$user,$role" | Out-File -FilePath $outputFile -Append -Encoding UTF8
+        "$filePath,$fileName,$userGroup,$permissionLevel" | Out-File -FilePath $outputFile -Append -Encoding UTF8
     }
 }
 
