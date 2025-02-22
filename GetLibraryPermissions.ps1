@@ -17,7 +17,7 @@ if ($files.Count -eq 0) {
 }
 
 # Initialize CSV file with headers
-"File Path,File Name,User/Group,Permission Type,Permission Level" | Out-File -FilePath $outputFile -Encoding UTF8
+"File Path,File Name,User/Group,Entity Type,Permission Level" | Out-File -FilePath $outputFile -Encoding UTF8
 
 # Loop through each file and retrieve permissions
 foreach ($file in $files) {
@@ -35,6 +35,7 @@ foreach ($file in $files) {
 
     # Loop through each permission entry
     foreach ($roleAssignment in $roleAssignments) {
+        # Get principal object (User/Group)
         $principal = Get-PnPProperty -ClientObject $roleAssignment -Property Principal
         $roles = Get-PnPProperty -ClientObject $roleAssignment -Property RoleDefinitionBindings
 
@@ -43,19 +44,19 @@ foreach ($file in $files) {
         # Extract role permissions
         $permissionLevel = ($roles | ForEach-Object { $_.Name }) -join ", "
 
-        # Identify whether it's a SharePoint Group, AAD User, or AAD Group
-        $principalType = switch ($principal.PrincipalType) {
-            1 { "AAD User" }
-            4 { "AAD Group" }
+        # Identify whether it's a SharePoint Group, Azure AD User, or Azure AD Security Group
+        $entityType = switch ($principal.PrincipalType) {
+            1 { "M365 User (Azure AD User)" }
+            4 { "Azure AD Security Group" }
             8 { "SharePoint Group" }
             default { "Unknown" }
         }
 
         # Display output on screen
-        Write-Host "File: $filePath | User/Group: $userGroup | Type: $principalType | Permission: $permissionLevel" -ForegroundColor Green
+        Write-Host "File: $filePath | User/Group: $userGroup | Entity Type: $entityType | Permission: $permissionLevel" -ForegroundColor Green
 
         # Append data to CSV immediately
-        "$filePath,$fileName,$userGroup,$principalType,$permissionLevel" | Out-File -FilePath $outputFile -Append -Encoding UTF8
+        "$filePath,$fileName,$userGroup,$entityType,$permissionLevel" | Out-File -FilePath $outputFile -Append -Encoding UTF8
     }
 }
 
