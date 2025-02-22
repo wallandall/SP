@@ -13,40 +13,55 @@ $items = Get-PnPListItem -List $libraryName -Fields FileLeafRef, FileRef -PageSi
 Write-Host "Total Items Found: $($items.Count)" -ForegroundColor Cyan
 
 # Initialize CSV file with headers
-"Path,File Name,User/Group,Permission" | Out-File -FilePath $outputFile -Encoding UTF8
+"Path,File Name,User/Group,Permission Type,Permission Level" | Out-File -FilePath $outputFile -Encoding UTF8
 
 # Loop through each item and retrieve permissions
 foreach ($item in $items) {
     # Get file/folder path and file name (with extension)
     $filePath = $item.FieldValues["FileRef"]
-    $fileName = $item.FieldValues["FileLeafRef"]  # This includes the file name and extension
+    $fileName = $item.FieldValues["FileLeafRef"]  # Includes file name and extension
 
     # Skip empty paths
     if ([string]::IsNullOrEmpty($filePath)) {
-        Write-Host "Skipped an item with no file path." -ForegroundColor Yellow
+        Write-Host "⚠️ Skipped an item with no file path." -ForegroundColor Yellow
         continue
     }
 
-    # Retrieve all permissions for the file/folder
-    $permissions = Get-PnPListItemPermission -List $libraryName -Identity $item.Id
+    # Retrieve all assigned permissions for the item
+    $roleAssignments = Get-PnPProperty -ClientObject $item -Property RoleAssignments
 
     # Check if any permissions exist
-    if ($permissions.Count -eq 0) {
-        Write-Host "No permissions found for: $filePath" -ForegroundColor Yellow
+    if ($roleAssignments.Count -eq 0) {
+        Write-Host "⚠️ No permissions found for: $filePath" -ForegroundColor Yellow
         continue
     }
 
-    # Loop through permissions and write data
-    foreach ($perm in $permissions) {
-        $userGroup = $perm.PrincipalName  # User or Group Name
-        $permissionLevel = $perm.Roles -join ", "  # Convert roles array to comma-separated string
+    # Loop through permissions and retrieve users/groups
+    foreach ($roleAssignment in $roleAssignments) {
+        $principal = Get-PnPProperty -ClientObject $roleAssignment -Property Principal
+        $roles = Get-PnPProperty -ClientObject $roleAssignment -Property RoleDefinitionBindings
+
+        # Extract user/group name
+        $userGroup = $principal.Title
+        $permissionLevel = ($roles | ForEach-Object { $_.Name }) -join ", "  # Convert roles array to comma-separated string
+
+        # Identify whether it's a SharePoint Group, AD User, or AD Group
+        if ($principal.PrincipalType -eq "User") {
+            $permissionType = "AD User"
+        } elseif ($principal.PrincipalType -eq "SecurityGroup") {
+            $permissionType = "AD Group"
+        } elseif ($principal.PrincipalType -eq "SharePointGroup") {
+            $permissionType = "SharePoint Group"
+        } else {
+            $permissionType = "Unknown"
+        }
 
         # Display output on screen
-        Write-Host "Path: $filePath | File: $fileName | User/Group: $userGroup | Permission: $permissionLevel" -ForegroundColor Green
+        Write-Host "Path: $filePath | File: $fileName | User/Group: $userGroup | Type: $permissionType | Permission: $permissionLevel" -ForegroundColor Green
 
         # Append data to CSV immediately
-        "$filePath,$fileName,$userGroup,$permissionLevel" | Out-File -FilePath $outputFile -Append -Encoding UTF8
+        "$filePath,$fileName,$userGroup,$permissionType,$permissionLevel" | Out-File -FilePath $outputFile -Append -Encoding UTF8
     }
 }
 
-Write-Host "Export complete! File saved at: $outputFile" -ForegroundColor Green
+Write-Host "✅ Export complete! File saved at: $outputFile" -ForegroundColor Green
