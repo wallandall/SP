@@ -6,4 +6,4 @@
 4. Update variable ```$siteUrl = "https://yourtenant.sharepoint.com/sites/yoursite"```
 5. Update Variable ```$libraryName = "YourLibraryName"```
 6. Update folder where CSV is saved  ```$outputFile = "C:\temp\UniquePermissions.csv"```
-7. Run Script ```./GetLibraryPermissions```
+7. Run Script ```./Get_SP_Permissions.ps1```
