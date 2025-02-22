@@ -23,7 +23,8 @@ foreach ($library in $docLibraries) {
     Write-Host "🔍 Processing Library: $libraryName" -ForegroundColor Cyan
 
     # Get all folders in the document library
-    $folders = Get-PnPListItem -List $libraryName -PageSize 1000 -Fields FileRef, FileLeafRef -Query "<View Scope='RecursiveAll'><Query><Where><Eq><FieldRef Name='FSObjType' /><Value Type='Integer'>1</Value></Eq></Where></Query></View>"
+    $folders = Get-PnPListItem -List $libraryName -PageSize 1000 -Fields "FileRef", "FileLeafRef", "FSObjType" `
+               | Where-Object { $_["FSObjType"] -eq 1 }  # Only get folders, not files
 
     # Ensure folders exist
     if ($folders.Count -eq 0) {
@@ -51,14 +52,11 @@ foreach ($library in $docLibraries) {
             $roles = $roleAssignment.Roles -join ", "  # Convert roles array to comma-separated string
 
             # Identify whether it's a SharePoint Group, AD User, or AD Group
-            if ($roleAssignment.PrincipalType -eq "User") {
-                $permissionType = "AD User"
-            } elseif ($roleAssignment.PrincipalType -eq "SecurityGroup") {
-                $permissionType = "AD Group"
-            } elseif ($roleAssignment.PrincipalType -eq "SharePointGroup") {
-                $permissionType = "SharePoint Group"
-            } else {
-                $permissionType = "Unknown"
+            switch ($roleAssignment.PrincipalType) {
+                "User" { $permissionType = "AD User" }
+                "SecurityGroup" { $permissionType = "AD Group" }
+                "SharePointGroup" { $permissionType = "SharePoint Group" }
+                default { $permissionType = "Unknown" }
             }
 
             # Display output on screen
