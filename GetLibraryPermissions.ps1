@@ -3,7 +3,7 @@ $siteUrl = "https://yourtenant.sharepoint.com/sites/yoursite"
 $libraryName = "Northshor"
 $outputFile = "$env:USERPROFILE\Desktop\AllPermissions.csv"  # Save to Desktop
 
-# Connect to SharePoint
+# Connect to SharePoint using Web Login
 Connect-PnPOnline -Url $siteUrl -UseWebLogin
 
 # Retrieve all items in the document library
@@ -22,16 +22,16 @@ foreach ($item in $items) {
 
     # Skip empty paths
     if ([string]::IsNullOrEmpty($filePath)) {
-        Write-Host "⚠️ Skipped an item with no file path." -ForegroundColor Yellow
+        Write-Host "Skipped an item with no file path." -ForegroundColor Yellow
         continue
     }
 
     # Retrieve all permissions for the file/folder
-    $permissions = Get-PnPObjectPermission -List $libraryName -Identity $item.Id
+    $permissions = Get-PnPListItemPermission -List $libraryName -Identity $item.Id
 
     # Check if any permissions exist
     if ($permissions.Count -eq 0) {
-        Write-Host "⚠️ No permissions found for: $filePath" -ForegroundColor Yellow
+        Write-Host "No permissions found for: $filePath" -ForegroundColor Yellow
         continue
     }
 
@@ -48,4 +48,4 @@ foreach ($item in $items) {
     }
 }
 
-Write-Host "✅ Export complete! File saved at: $outputFile" -ForegroundColor Green
+Write-Host "Export complete! File saved at: $outputFile" -ForegroundColor Green
