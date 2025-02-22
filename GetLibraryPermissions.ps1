@@ -1,18 +1,18 @@
 # Define SharePoint site and document library
 $siteUrl = "https://yourtenant.sharepoint.com/sites/yoursite"
-$libraryName = "YourLibraryName"
+$libraryName = "Northshor"
 $outputFile = "$env:USERPROFILE\Desktop\UniquePermissions.csv" # Saves file on Desktop
 
 # Connect to SharePoint
-#Connect-PnPOnline -Url $siteUrl -Interactive
 Connect-PnPOnline -Url $siteUrl -UseWebLogin
 
-# Retrieve all items
-$items = Get-PnPListItem -List $libraryName -Fields FileRef, HasUniqueRoleAssignments -PageSize 1000
+# Test if list retrieval works
+$items = Get-PnPListItem -List $libraryName -PageSize 10
+Write-Host "Total Items Found: " $items.Count
 
-# Verify items exist
+# If the above command works, proceed with the script
 if ($items.Count -eq 0) {
-    Write-Host "No items found in the library!" -ForegroundColor Yellow
+    Write-Host " No items found in the library!" -ForegroundColor Yellow
     Exit
 }
 
@@ -21,31 +21,15 @@ if ($items.Count -eq 0) {
 
 # Loop through each item and check permissions
 foreach ($item in $items) {
-    # Get file/folder path
     $filePath = $item.FieldValues["FileRef"]
+    if ([string]::IsNullOrEmpty($filePath)) { continue }
 
-    # Skip empty paths
-    if ([string]::IsNullOrEmpty($filePath)) {
-        continue
-    }
-
-    # Check if the file/folder has unique permissions
     if ($item["HasUniqueRoleAssignments"] -eq $true) {
-        # Get unique permissions for the item
         $permissions = Get-PnPObjectPermission -List $libraryName -Identity $item.Id
-
-        # Check if permissions exist
-        if ($permissions.Count -eq 0) {
-            Write-Host " No unique permissions found for: $filePath" -ForegroundColor Yellow
-            continue
-        }
-
-        # Loop through permissions and write data
         foreach ($perm in $permissions) {
             $user = $perm.PrincipalName
-            $role = $perm.Roles -join ", "  # Convert roles array to comma-separated string
+            $role = $perm.Roles -join ", "
 
-            # Store and log data
             "$filePath,$user,$role" | Out-File -FilePath $outputFile -Append -Encoding UTF8
             Write-Host "Path: $filePath | User: $user | Permission: $role" -ForegroundColor Green
         }
