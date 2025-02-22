@@ -1,70 +1,56 @@
-# Define SharePoint site
+# Define SharePoint site and document library
 $siteUrl = "https://yourtenant.sharepoint.com/sites/yoursite"
-$outputFile = "$env:USERPROFILE\Desktop\FolderPermissions.csv"  # Save to Desktop
+$libraryName = "YourLibraryName"
+$outputFile = "$env:USERPROFILE\Desktop\DocumentPermissions.csv"  # Save to Desktop
 
 # Connect to SharePoint using Web Login
 Connect-PnPOnline -Url $siteUrl -UseWebLogin
 
-# Retrieve all document libraries in the site
-$docLibraries = Get-PnPList | Where-Object {$_.BaseType -eq "DocumentLibrary"}
+# Retrieve all files (not folders) in the specified document library
+$files = Get-PnPListItem -List $libraryName -PageSize 1000 -Fields "FileRef", "FileLeafRef", "FSObjType" `
+         | Where-Object { $_["FSObjType"] -eq 0 }  # 0 = File, 1 = Folder
 
-# Ensure libraries exist
-if ($docLibraries.Count -eq 0) {
-    Write-Host "⚠️ No document libraries found!" -ForegroundColor Yellow
+# Ensure files exist
+if ($files.Count -eq 0) {
+    Write-Host "⚠️ No files found in the library: $libraryName" -ForegroundColor Yellow
     Exit
 }
 
 # Initialize CSV file with headers
-"Library Name,Folder Path,User/Group,Permission Type,Permission Level" | Out-File -FilePath $outputFile -Encoding UTF8
+"File Path,File Name,User/Group,Permission Type,Permission Level" | Out-File -FilePath $outputFile -Encoding UTF8
 
-# Loop through each document library
-foreach ($library in $docLibraries) {
-    $libraryName = $library.Title
-    Write-Host "🔍 Processing Library: $libraryName" -ForegroundColor Cyan
+# Loop through each file and retrieve permissions
+foreach ($file in $files) {
+    $filePath = $file.FieldValues["FileRef"]
+    $fileName = $file.FieldValues["FileLeafRef"]
 
-    # Get all folders in the document library
-    $folders = Get-PnPListItem -List $libraryName -PageSize 1000 -Fields "FileRef", "FileLeafRef", "FSObjType" `
-               | Where-Object { $_["FSObjType"] -eq 1 }  # Only get folders, not files
+    # Retrieve all assigned permissions for the file
+    $roleAssignments = Get-PnPListItemPermission -List $libraryName -Identity $file.Id
 
-    # Ensure folders exist
-    if ($folders.Count -eq 0) {
-        Write-Host "⚠️ No folders found in: $libraryName" -ForegroundColor Yellow
+    # Check if any permissions exist
+    if ($roleAssignments.Count -eq 0) {
+        Write-Host "⚠️ No permissions found for: $filePath" -ForegroundColor Yellow
         continue
     }
 
-    # Loop through each folder
-    foreach ($folder in $folders) {
-        $folderPath = $folder.FieldValues["FileRef"]
-        $folderName = $folder.FieldValues["FileLeafRef"]
+    # Loop through permissions and retrieve users/groups
+    foreach ($roleAssignment in $roleAssignments) {
+        $userGroup = $roleAssignment.PrincipalName  # User or Group Name
+        $roles = $roleAssignment.Roles -join ", "  # Convert roles array to comma-separated string
 
-        # Retrieve all assigned permissions for the folder
-        $roleAssignments = Get-PnPListItemPermission -List $libraryName -Identity $folder.Id
-
-        # Check if any permissions exist
-        if ($roleAssignments.Count -eq 0) {
-            Write-Host "⚠️ No permissions found for: $folderPath" -ForegroundColor Yellow
-            continue
+        # Identify whether it's a SharePoint Group, AD User, or AD Group
+        switch ($roleAssignment.PrincipalType) {
+            "User" { $permissionType = "AAD User" }
+            "SecurityGroup" { $permissionType = "AAD Group" }
+            "SharePointGroup" { $permissionType = "SharePoint Group" }
+            default { $permissionType = "Unknown" }
         }
 
-        # Loop through permissions and retrieve users/groups
-        foreach ($roleAssignment in $roleAssignments) {
-            $userGroup = $roleAssignment.PrincipalName  # User or Group Name
-            $roles = $roleAssignment.Roles -join ", "  # Convert roles array to comma-separated string
+        # Display output on screen
+        Write-Host "File: $filePath | User/Group: $userGroup | Type: $permissionType | Permission: $roles" -ForegroundColor Green
 
-            # Identify whether it's a SharePoint Group, AD User, or AD Group
-            switch ($roleAssignment.PrincipalType) {
-                "User" { $permissionType = "AD User" }
-                "SecurityGroup" { $permissionType = "AD Group" }
-                "SharePointGroup" { $permissionType = "SharePoint Group" }
-                default { $permissionType = "Unknown" }
-            }
-
-            # Display output on screen
-            Write-Host "Folder: $folderPath | User/Group: $userGroup | Type: $permissionType | Permission: $roles" -ForegroundColor Green
-
-            # Append data to CSV immediately
-            "$libraryName,$folderPath,$userGroup,$permissionType,$roles" | Out-File -FilePath $outputFile -Append -Encoding UTF8
-        }
+        # Append data to CSV immediately
+        "$filePath,$fileName,$userGroup,$permissionType,$roles" | Out-File -FilePath $outputFile -Append -Encoding UTF8
     }
 }
 
