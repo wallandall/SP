@@ -17,7 +17,7 @@ if ($files.Count -eq 0) {
 }
 
 # Initialize CSV file with headers
-"File Path,File Name,User/Group,Permission Level" | Out-File -FilePath $outputFile -Encoding UTF8
+"File Path,File Name,User/Group,Permission Type,Permission Level" | Out-File -FilePath $outputFile -Encoding UTF8
 
 # Loop through each file and retrieve permissions
 foreach ($file in $files) {
@@ -25,7 +25,7 @@ foreach ($file in $files) {
     $fileName = $file.FieldValues["FileLeafRef"]
 
     # Retrieve all assigned permissions for the file
-    $roleAssignments = Get-PnPListItemPermission -List $libraryName -Identity $file.Id
+    $roleAssignments = Get-PnPProperty -ClientObject $file -Property RoleAssignments
 
     # Check if any permissions exist
     if ($roleAssignments.Count -eq 0) {
@@ -35,14 +35,27 @@ foreach ($file in $files) {
 
     # Loop through each permission entry
     foreach ($roleAssignment in $roleAssignments) {
-        $userGroup = $roleAssignment.PrincipalName  # User or Group Name
-        $permissionLevel = ($roleAssignment.Roles -join ", ")  # Permission levels
+        $principal = Get-PnPProperty -ClientObject $roleAssignment -Property Principal
+        $roles = Get-PnPProperty -ClientObject $roleAssignment -Property RoleDefinitionBindings
+
+        # Extract user/group name
+        $userGroup = $principal.Title
+        # Extract role permissions
+        $permissionLevel = ($roles | ForEach-Object { $_.Name }) -join ", "
+
+        # Identify whether it's a SharePoint Group, AAD User, or AAD Group
+        $principalType = switch ($principal.PrincipalType) {
+            1 { "AAD User" }
+            4 { "AAD Group" }
+            8 { "SharePoint Group" }
+            default { "Unknown" }
+        }
 
         # Display output on screen
-        Write-Host "File: $filePath | User/Group: $userGroup | Permission: $permissionLevel" -ForegroundColor Green
+        Write-Host "File: $filePath | User/Group: $userGroup | Type: $principalType | Permission: $permissionLevel" -ForegroundColor Green
 
         # Append data to CSV immediately
-        "$filePath,$fileName,$userGroup,$permissionLevel" | Out-File -FilePath $outputFile -Append -Encoding UTF8
+        "$filePath,$fileName,$userGroup,$principalType,$permissionLevel" | Out-File -FilePath $outputFile -Append -Encoding UTF8
     }
 }
 
