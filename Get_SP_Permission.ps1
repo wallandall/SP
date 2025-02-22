@@ -17,7 +17,7 @@ $files = Get-PnPListItem -List $libraryName -Fields "FileRef", "FileLeafRef", "F
 
 # Ensure files exist
 if ($files.Count -eq 0) {
-    Write-Host "⚠️ No files found in the library: $libraryName" -ForegroundColor Yellow
+    Write-Host "No files found in the library: $libraryName" -ForegroundColor Yellow
     Exit
 }
 
@@ -34,7 +34,7 @@ foreach ($file in $files) {
 
     # Check if any permissions exist
     if ($roleAssignments.Count -eq 0) {
-        Write-Host "⚠️ No permissions found for: $filePath" -ForegroundColor Yellow
+        Write-Host "No permissions found for: $filePath" -ForegroundColor Yellow
         continue
     }
 
@@ -85,5 +85,5 @@ foreach ($file in $files) {
     }
 }
 
-Write-Host "✅ Export complete! File saved at: $outputFile" -ForegroundColor Green
+Write-Host "Export complete! File saved at: $outputFile" -ForegroundColor Green
 
