@@ -1,6 +1,6 @@
-Uninstall-Module PnP.PowerShell -AllVersions -Force
-Install-Module -Name PnP.PowerShell -Force
-Import-Module PnP.PowerShell
+#Uninstall-Module PnP.PowerShell -AllVersions -Force
+#Install-Module -Name PnP.PowerShell -Force
+#Import-Module PnP.PowerShell
 
 # Connect to SharePoint Online
 $siteUrl = "https://yourtenant.sharepoint.com/sites/yoursite"
